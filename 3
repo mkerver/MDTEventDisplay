@@ -1,0 +1,243 @@
+/**********************************************************
+   selector_null.C
+   This is just an template for a selector function.
+   Edward Diehl 8-May-2007, updated 12-Jan-2010
+**********************************************************/
+#define selector_cxx
+// framework see $ROOTSYS/README/README.SELECTOR or the ROOT User Manual.
+
+// The following methods are defined in this file:
+//    Begin():        called every time a loop on the tree starts,
+//                    a convenient place to create your histograms.
+//    SlaveBegin():   called after Begin(), when on PROOF called only on the
+//                    slave servers.
+//    Process():      called for each event, in this function you decide what
+//                    to read and fill your histograms.
+//    SlaveTerminate: called at the end of the loop on the tree, when on PROOF
+//                    called only on the slave servers.
+//    Terminate():    called at the end of the loop on the tree,
+//                    a convenient place to draw/fit your histograms.
+//
+// To use this file, try the following session on your Tree T:
+//
+// Root > T->Process("selector.C")
+// Root > T->Process("selector.C","some options")
+// Root > T->Process("selector.C+")
+//
+#include <stdio.h>
+#include <TObjArray.h>
+#include "selector.h"
+#include "TH1F.h"
+#include "TH2F.h"
+#include "TCanvas.h"
+#include "TLine.h"
+//  Put in full directory path for condor jobs
+#include "muonfixedid.h"
+#include "chamberlist.h"
+// Bookkeeping
+int nevents=0;
+//Histograms
+TH2F *rpc_gposX_gposZ;
+TH2F *rpc_gposY_gposZ;
+TH2F *EveYZ;
+TH2F *rpcHits_YZ;
+TH2F *mdtHits_YZ;
+TH2F *trkHits_YZ;
+/**************************************************************/
+void selector::Begin(TTree *) {
+//  Can pass a string option which is 4th argument of runselector.C
+//  You can retrieve the option in any function in this file.
+  TString option = GetOption();
+  printf("Begin: The option is %s\n",option.Data());
+//  This code parses the options and finds options separated by white space
+  TObjArray *Strings = option.Tokenize(" "); 
+  if(Strings->GetEntriesFast()) {
+    TIter iString(Strings);
+    TObjString* os=0;
+    Int_t j=0;
+    while ((os=(TObjString*)iString())) {
+      printf("token #%d ='%s'\n",j++,  os->GetString().Data());
+    }
+  }
+  delete Strings;
+//  Print help message to users
+  if( option == "-h" ) {
+    printf("selector_null: sample selector function\n");
+    printf("    Edward Diehl  3/29/09\n");
+    exit(0);    //Abort job
+  }
+//Book Histograms
+   rpc_gposX_gposZ = new TH2F("rpc_gposX_gposZ" , "RPC XvZ", 100,3,3.3,100, 0,2);
+   rpc_gposY_gposZ = new TH2F("rpc_gposY_gposZ" , "RPC YvZ", 100,3,3.5,100, 6,8);
+   EveYZ = new TH2F("EveYZ", "EveYvZ", 10, 2.3, 3.7, 100, 6.5, 7.7); 
+   rpcHits_YZ = new TH2F("rpcHits_YZ", "hitsYvZ", 100, 2.3, 3.7, 100, 6.5, 7.7); 
+   mdtHits_YZ = new TH2F("rpcHits_YZ", "hitsYvZ", 100, 2.3, 3.7, 100, 6.5, 7.7); 
+   trkHits_YZ = new TH2F("trkHits_YZ", "hitsYvZ", 100, 2.3, 3.7, 100, 6.5, 7.7); 
+}
+/***************************************************************/
+// The Process() function is called for each entry in the tree (or possibly
+/***************************************************************/
+Bool_t selector::Process(Long64_t entry) {
+//  Bookkeeping
+  nevents++;
+if(nevents==1446){
+// Get event data - this gets the whole ntuple
+  fChain->GetTree()->GetEntry(entry);
+  float mmToM = 1./1000.;
+  float roadwidth = 20.0;
+  int nMdtHits = 0;
+  //printf("Process: EVENT %i MDT segment hits=%i\n",nevents,mdt_nMdt);
+
+//Fill XvY and YvZ RPC histo  
+/*  for(int i=0;i<trk_nTracks;i++){
+    if(1./(trk_qOverP[i])>20000.0 || 1./(trk_qOverP[i])<-20000.0){
+      for(int j=0;j<trkHit_nHits;j++){
+        int mfid = trkHit_id[j];
+        int station = StationID(mfid);
+        int eta = StationEta(mfid);
+        int sector = StationPhi(mfid);
+        const char *chambertype=ChamberType(station);
+        if(TechID(mfid)==3 && chambertype[0]=='B' && chambertype[1]=='M' && chambertype[2]=='L' && sector==3 && eta==2){
+        //  printf("Event number: %i Track number: %i Hit number: %i station: BML\n",nevents,i,j);
+          rpc_gposX_gposZ->Fill(trkHit_posZ[j]*mmToM,trkHit_posX[j]*mmToM);
+          rpc_gposY_gposZ->Fill(trkHit_posZ[j]*mmToM,trkHit_posY[j]*mmToM);
+        //  printf("x: %f y: %f z: %f \n", trkHit_posX[j], trkHit_posY[j], trkHit_posZ[j]);        
+         }
+       if(mdt_gPosX[j]<roadwidth/2. && mdt_gPosX[j]>-roadwidth/2. && TechID(mfid)==0 && chambertype[0]=='B' && chambertype[1]=='M' && chambertype[2]=='L' && sector==4){
+           nMdtHits++;
+         } 
+       }
+     }
+   }
+*/ 
+// Get event data - this gets just individual item.
+//  b_rpc_nRpcHits->GetEntry(entry);
+
+/*
+
+
+//Event Display
+  for(float i= 2.0; i<4.0; i=i+0.001 ){
+     for(float j = 6.758; j< 6.842; j=j+0.001){
+     EveYZ->Fill(i,j);
+     }
+   }
+  for(float l= 2.0; l<4.0; l=l+0.001 ){
+    for(float n = 7.436; n< 7.520; n=n+0.001){
+     EveYZ->Fill(l,n);
+     }
+   }
+//RPC track
+  for(int i=0;i<trk_nTracks;i++){
+    if(1./(trk_qOverP[i])>20000.0 || 1./(trk_qOverP[i])<-20000.0){
+      for(int j=0;j<trkHit_nHits;j++){
+        int mfid = trkHit_id[j];
+        int station = StationID(mfid);
+        int eta = StationEta(mfid);
+        int sector = StationPhi(mfid);
+        printf("track mfid: %i\n",mfid);
+        const char *chambertype=ChamberType(station);
+        if(chambertype[0]=='B' && chambertype[1]=='M' && chambertype[2]=='L' && sector==3 && eta==2){
+           if(TechID(mfid)==3){
+              rpcHits_YZ->Fill(trkHit_posZ[j]*mmToM,trkHit_posY[j]*mmToM);
+ 	//	 printf("x: %f y: %f z: %f event: %i \n", trkHit_posX[j], trkHit_posY[j], trkHit_posZ[j],nevents); 
+            }
+           if(TechID(mfid)==0){
+              trkHits_YZ->Fill(trkHit_posZ[j]*mmToM,trkHit_posY[j]*mmToM);
+            }
+          }
+        }
+      }
+   }
+//Mdt Hits
+  for(int m=0; m<rawMdt_nRMdt;m++){
+     int mfid = rawMdt_id[m];
+     int station = StationID(mfid);
+     int eta = StationEta(mfid);
+     int sector = StationPhi(mfid);
+     const char *chambertype=ChamberType(station);
+    // printf("mfid: %i\n",mfid);
+     if(rawMdt_adc[m]>50){
+       if(TechID(mfid)==0 && chambertype[0]=='B' && chambertype[1]=='M' && chambertype[2]=='L' && sector==3 && eta==2){
+        mdtHits_YZ->Fill(rawMdt_gPosZ[m]*mmToM, rawMdt_gPosY[m]*mmToM); 
+        // printf("mdt  x: %f y: %f z: %f \n", rawMdt_gPosX[m], rawMdt_gPosY[m] , rawMdt_gPosZ[m]);        
+       }        
+     }
+   }
+*/ 
+//Debugging Code
+
+   for(int j=0;j<trkHit_nHits;j++){
+      int trackindex = trkHit_trackIndex[j];
+      float p = 1.0/trk_qOverP[j];
+      if(p>20000.0 ||p<-20000.0){
+        if(trkHit_type[j]== 1){
+          int mfid = trkHit_id[j];
+          int station = StationID(mfid);
+          int eta = StationEta(mfid);
+          int sector = StationPhi(mfid);
+          const char *chambertype=ChamberType(station);
+          printf("event %i  track: %i hit: %i id: %i \n",nevents,trackindex,j,mfid);
+        // cout<<"id:"<<mfid<<endl;
+        //  if(chambertype[0]=='B' && chambertype[1]=='M' && chambertype[2]=='L' && sector==3 && eta==2){
+      // }
+
+      for(int m=0; m<rawMdt_nRMdt;m++){
+         int rawmfid = rawMdt_id[m];
+         if(rawmfid == mfid) printf("event %i  track: %i hit: %i rawhit: %i id: %i \n",nevents,trackindex,j,m,mfid);
+    }
+   }
+  }
+ }
+} 
+return kTRUE;
+}
+
+/**************************************************************/
+// The Terminate() function is the last function to be called during
+/**************************************************************/
+void selector::Terminate() {
+  printf("Terminate: Processed %i events\n",nevents);
+  Float_t RPCbottom = 6.8;
+  TCanvas *c1 = new TCanvas("c1","XvZ",700,900);
+  TCanvas *c2 = new TCanvas("c2","YvZ",700,900);
+  TCanvas *c3 = new TCanvas("c3","EveYvZ",700,900);
+  TLine *RPCline = new TLine(-15,RPCbottom,15,RPCbottom);
+  TLine *trkline = new TLine(-15,RPCbottom,15,RPCbottom);
+  RPCline->SetLineWidth(1);
+  RPCline->SetLineColor(kRed);
+
+  c1->cd();
+  rpc_gposX_gposZ->Draw();
+  c2->cd();
+  rpc_gposY_gposZ->Draw();
+  c2->Update();
+  RPCline->Draw(); 
+  c3->cd();
+  EveYZ->Draw();
+  
+  EveYZ->SetMarkerColor(21);
+  rpcHits_YZ->SetMarkerColor(kRed);
+  mdtHits_YZ->SetMarkerColor(kBlue);
+  trkHits_YZ->SetMarkerColor(kGreen);
+  mdtHits_YZ->SetMarkerSize(0.5);
+  rpcHits_YZ->SetMarkerSize(.5);
+  trkHits_YZ->SetMarkerSize(.8);
+  trkHits_YZ->SetMarkerStyle(5);
+  mdtHits_YZ->SetMarkerStyle(8);
+  rpcHits_YZ->SetMarkerStyle(8);
+  mdtHits_YZ->Draw("same");
+  trkHits_YZ->Draw("same");
+  rpcHits_YZ->Draw("same");
+
+ 
+  TFile f("RPCplots.root","recreate");
+  rpc_gposX_gposZ->Write();
+  rpc_gposY_gposZ->Write();
+  c3->Print("canvas.root");
+ 
+}
+
+// I do not normally use these
+void selector::SlaveBegin(TTree * ) {}
+void selector::SlaveTerminate() {}

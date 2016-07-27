@@ -1,0 +1,33 @@
+#!/bin/bash
+print_help() {   #use -h or --help option to print help
+  cat <<EOF
+  Script to run selector functions in a condor job.
+  \$1 = calib ntuple list
+  \$2 = option 2 for selector functions
+  \$3 = option 3 for selector functions
+ 
+  It is assumed that there is a selector.C file in \$PWD
+ 
+EOF
+}
+##############################################################
+###  MAIN ROUTINE
+###  See if the user wants help
+##############################################################
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  print_help; exit
+fi
+echo "#=#=#=# `date +"%x %T"` Running on `uname -a | cut -f 2 -d " "`"
+. /afs/atlas.umich.edu/home/muoncal/public/root/copytotmp.sh
+runfile=/afs/atlas.umich.edu/home/muoncal/public/root/runselector.C
+###  Copy calib ntuples to /tmp/$USER/$1
+copytotmp $1
+###  Run ROOT
+echo which root
+which root
+echo root -l -b -q "$runfile(\"$tmplist\",$2,\"$3\")" 
+root -l -b -q "$runfile(\"$tmplist\",$2,\"$3\")" 
+###  Clean up /tmp
+cleantmp $1
+# Clean up
+rm -rf selector*

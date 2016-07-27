@@ -1,0 +1,128 @@
+o Description of calib ntuples variables:
+https://twiki.cern.ch/twiki/bin/viewauth/Atlas/MuonCalibNuptleContent
+https://twiki.cern.ch/twiki/bin/viewauth/Atlas/MuonCalibExtraNtupleContent
+
+o Location of *.h, *.C, *.sh files for calib ntuple analysis:
+/afs/atlas.umich.edu/home/muoncal/public/root/
+
+o Ed's method using a TSelector class (ROOT only, no Athena).  I have
+a template "selector" function which can be used to create,fill
+histograms/ do analysis on calib ntuples.  Also have various shell
+scripts, include files to help analysis.  Here is a descripion of how
+the method works:
+
+The ROOT MakeSelector function writes a "selector" function based on a
+the TTree.  This function is an analysis template to process events in
+the TTree (or TChain of TTrees).
+
+I have a system to simplify the running of selector functions for
+calibration ntuples.  The files are:
+
+selector_null.C => selector function template.
+   To make a new function copy this file with a name like
+   selector_<name>.C.  Edit the file with whatever analysis you want
+   to do.  The script runselector.sh (see below) runs these "selector"
+   functions in root.   
+
+selector_null.h => Default "selector.h" file
+   which lists all the variables in the calibration ntuple.  It is
+   also possible to make a selector_<name>.h which is specific to the
+   new selector_<name>.C file.  This is allow definitions of new
+   member functions for the selector class.  You have to add new
+   member functions to selector class definition.  When new varables
+   are added to the calib ntuple you have to regenerate this file with
+   the ROOT TSelector() function.
+
+runselector.C(<ntuplelist>,<nfiles>,<options>)
+   This routine is used to run selector.C function in ROOT.  To use it
+   directly you must rename your selector_<name>.C to selector.C (and
+   selector_<name>.h to selector.h if it exists).  One of the
+   options is "+" which means compile selector.C before running, so
+   the script runs faster.  I usually do not use runselector.C
+   directly but rather use runselector.sh (below) which does the
+   renaming automatically.
+   
+runselector.sh <selector_name> <ntuplelist> [<nfiles or -nevents>] [<options>]
+   ==> Shell script to run the selector function.
+   <selector_name> => selector function which should be called
+            selector_<selector_name>.C.  Optionally there can be a
+            selector_<selector_name>.h file, otherwise use selector_null.h
+            Script looks for selector functions in current directory
+            and $HOME/root/macros (can change location by editing file).
+   <ntuplelist> => List of calib ntuples to process (should end in ".txt")
+   <nfiles>     => number of calib ntuple files to process, 0=ALL
+                   if NEGATIVE then number of events to process
+                   (useful for debugging to process only a few events)
+   <options> => Options to pass to selector function (text string).
+                   selector function can access these options with
+                   TString option = GetOption(); in selector.C.
+                   Options must all be in the same text string,
+		   enclosed in quotes.  selector_null.C has code to
+		   parse this string.
+
+                   Code is compiled before running which makes it run
+		   much faster, and catches programming bugs.   (ROOT
+		   scripts can be run without compilation, which is
+		   not recommended)
+             => -b option Run as condor job.  Creates a job directory
+                called <ntuplelist>_<selector_name><N>
+                where <ntuplelist> is taken from the name of the list
+                of ntuples for the job (with ".txt" removed)
+                <selector_name> is the name of the selector function
+                <N> is a unique integer, starting from 1.  That is,
+                a unique integer will be found in order to create a
+		unique directory name so you do not overwrite an
+		existing directory.  The batch jobs are run using
+		script "sb".
+
+         Multiple condor jobs will be submitted containing a partial
+         list of ntuples in order to keep the disk size of ntuples per 
+         job below filesizemax=$filesizemax kb
+                     
+Example:
+runselector.sh event RNT.136832_10._EML_1.0.root -10 
+
+  => This runs selector_event.C (which is print out of event data)
+     on calibration ntuple  RNT.136832_10._EML_1.0.root, processing
+     only 10 events.  
+
+Some of Ed's selector functions in 
+/afs/atlas.umich.edu/home/muoncal/public/root:
+
+selector_null.C      => Empty selector function, use as template
+selector_event.C     => Print out of event data
+selector_mdtplot.C   => Make some plots of MDT data
+selector_rtplot.C    => Plots RT functions 
+selector_resi.C      => Make residual plots
+selector_timetrack.C => Make ADC/Time plots for ADC/T0 fits
+
+
+======= APPENDIX ========================================
+o How to generate selector.C and selector.h.  
+
+This does not needed to be done very often, but is necessary when new
+variables are added to the TTree to generate a new selector.h.
+
+RNT.136832_10._EML_1.0.root = calibration ntuple which has a TTree
+called "Segments".
+
+root [1] TFile *f = new TFile("/tmp/RNT.136832_10._EML_1.0.root")
+root [2] .ls
+TFile**         /tmp/RNT.136832_10._EML_1.0.root
+ TFile*         /tmp/RNT.136832_10._EML_1.0.root
+  KEY: TDirectoryFile   EML_1;1 EML_1
+root [5] f->cd("EML_1")
+(Bool_t)(1)
+root [6] .ls
+TDirectoryFile*         EML_1   EML_1
+ KEY: TTree     Segments;1      My first tree
+root [7] Segments->MakeSelector("selector")
+Info in <TTreePlayer::MakeClass>: Files: selector.h and selector.C generated from TTree: Segments
+(Int_t)(0)
+
+o Useful include files:
+muonfixedid.h => has functions to convert muonfixedid's to standard
+ATLAS hardware names
+chamberlist.h => has a list of all MDT chambers and many useful
+functions to derive their properties, e.g. number of tubes per layer.
+ 
